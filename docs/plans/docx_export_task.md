@@ -1,0 +1,7 @@
+- [ ] Add `docx-rs` dependency to `apps/desktop/src-tauri/Cargo.toml`
+- [ ] Create `apps/desktop/src-tauri/src/docx_export.rs` with basic conversion logic
+- [ ] Declare `docx_export` module in `apps/desktop/src-tauri/src/lib.rs` (or `main.rs`)
+- [ ] Add `export_docx` and `export_docx_from_hwp_path` commands to `apps/desktop/src-tauri/src/commands.rs`
+- [ ] Update `apps/studio-host/src/core/tauri-bridge.ts` to include `.docx` filter and call backend export
+- [ ] Add "Export as DOCX" to the UI menu (optional, if needed)
+- [ ] Verify export works and files open in Word
