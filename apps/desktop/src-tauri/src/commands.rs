@@ -195,6 +195,54 @@ pub fn export_pdf(
 }
 
 #[tauri::command]
+pub fn prepare_staged_hwp_docx_export(
+    app: AppHandle,
+    target_path: String,
+) -> Result<String, String> {
+    prepare_staged_file(
+        &app,
+        PathBuf::from(target_path),
+        ensure_docx_target_path,
+        staged_hwp_docx_export_path,
+    )
+}
+
+#[tauri::command]
+pub fn export_docx_from_hwp_path(
+    staged_path: String,
+    target_path: String,
+    open_after: bool,
+) -> Result<(), String> {
+    let staged_path = PathBuf::from(staged_path);
+    let bytes = std::fs::read(&staged_path).map_err(|e| {
+        format!(
+            "DOCX 내보내기용 staging 파일을 읽을 수 없습니다: {} ({})",
+            staged_path.display(),
+            e
+        )
+    })?;
+    let core = editable_core_from_bytes(
+        &bytes,
+        "문서 바이트 파싱 실패",
+        "DOCX 내보내기용 문서 변환 실패",
+    )?;
+    let path = PathBuf::from(&target_path);
+    crate::docx_export::export_core_to_docx(&core, &path)?;
+
+    if open_after {
+        open::that(&path).map_err(|e| {
+            format!(
+                "파일은 저장됐지만 OS 기본 앱으로 열 수 없습니다: {} ({})",
+                path.display(),
+                e
+            )
+        })?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn export_pdf_from_hwp_path(
     app: AppHandle,
     staged_path: String,
@@ -313,6 +361,15 @@ fn ensure_pdf_target_path(path: &Path) -> Result<(), String> {
 
 fn staged_hwp_pdf_export_path(target_path: &Path) -> Result<PathBuf, String> {
     staged_sibling_path(target_path, ".hop-export-", ".hwp")
+}
+
+fn ensure_docx_target_path(path: &Path) -> Result<(), String> {
+    ensure_target_parent(path, "DOCX 경로")?;
+    crate::docx_export::ensure_docx_path(path)
+}
+
+fn staged_hwp_docx_export_path(target_path: &Path) -> Result<PathBuf, String> {
+    staged_sibling_path(target_path, ".hop-docx-", ".hwp")
 }
 
 fn ensure_target_parent(path: &Path, context: &str) -> Result<(), String> {

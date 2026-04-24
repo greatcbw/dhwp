@@ -74,6 +74,7 @@ export interface DesktopBridgeApi {
   saveDocumentFromCommand(): Promise<DesktopSaveResult | null>;
   saveDocumentAsFromCommand(): Promise<DesktopSaveResult | null>;
   exportPdfFromCommand(): Promise<string | null>;
+  exportDocxFromCommand(): Promise<void>;
   printCurrentWebview(): Promise<void>;
   destroyCurrentWindow(): Promise<void>;
   cancelAppQuit(): Promise<void>;
@@ -185,6 +186,26 @@ export class TauriBridge extends WasmBridge implements DesktopBridgeApi {
         stagedPath,
         targetPath: finalPath,
         pageRange: null,
+        openAfter: true,
+      });
+    } finally {
+      await remove(stagedPath).catch(() => undefined);
+    }
+  }
+
+  async exportDocxFromCommand(): Promise<void> {
+    this.ensureDocumentLoaded();
+    const targetPath = await this.selectSavePath(this.suggestedDocxName(), 'Word 문서', ['docx']);
+    if (!targetPath) return;
+    const finalPath = this.withExtension(targetPath, 'docx');
+    const stagedPath = await this.invoke<string>('prepare_staged_hwp_docx_export', {
+      targetPath: finalPath,
+    });
+    try {
+      await this.writeCurrentHwpToPath(stagedPath);
+      await this.invoke<void>('export_docx_from_hwp_path', {
+        stagedPath,
+        targetPath: finalPath,
         openAfter: true,
       });
     } finally {
@@ -558,6 +579,11 @@ export class TauriBridge extends WasmBridge implements DesktopBridgeApi {
   private suggestedPdfName(): string {
     const name = this.fileName.replace(/\.(hwp|hwpx)$/i, '') || 'document';
     return `${name}.pdf`;
+  }
+
+  private suggestedDocxName(): string {
+    const name = this.fileName.replace(/\.(hwp|hwpx)$/i, '') || 'document';
+    return `${name}.docx`;
   }
 
   private updateDocumentTitle(): void {

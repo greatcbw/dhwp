@@ -10,6 +10,7 @@ type DesktopFileBridge = Pick<
   | 'saveDocumentFromCommand'
   | 'saveDocumentAsFromCommand'
   | 'exportPdfFromCommand'
+  | 'exportDocxFromCommand'
   | 'printCurrentWebview'
 >;
 
@@ -23,6 +24,7 @@ function desktopBridge(wasm: unknown): DesktopFileBridge | null {
     && typeof candidate.saveDocumentFromCommand === 'function'
     && typeof candidate.saveDocumentAsFromCommand === 'function'
     && typeof candidate.exportPdfFromCommand === 'function'
+    && typeof candidate.exportDocxFromCommand === 'function'
     && typeof candidate.printCurrentWebview === 'function'
     ? candidate as DesktopFileBridge
     : null;
@@ -144,6 +146,22 @@ const hopOnlyCommands: CommandDef[] = [
       emitStatus(services, 'PDF 내보내기 중...');
       const jobId = await desktop.exportPdfFromCommand();
       if (jobId) emitStatus(services, 'PDF 내보내기 완료');
+    },
+  },
+  {
+    id: 'file:export-docx',
+    label: 'DOCX 내보내기',
+    canExecute: (ctx) => ctx.hasDocument,
+    async execute(services) {
+      const desktop = desktopBridge(services.wasm);
+      if (!desktop) {
+        alert('DOCX 내보내기는 HOP 데스크톱 앱에서 지원합니다.');
+        return;
+      }
+
+      emitStatus(services, 'DOCX 내보내기 중...');
+      await desktop.exportDocxFromCommand();
+      emitStatus(services, 'DOCX 내보내기 완료');
     },
   },
 ];

@@ -1,5 +1,6 @@
 mod app_quit;
 mod commands;
+mod docx_export;
 #[cfg(target_os = "linux")]
 mod linux_runtime;
 #[cfg(target_os = "macos")]
@@ -18,8 +19,9 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use commands::{
     cancel_app_quit, check_external_modification, close_document, commit_staged_hwp_save,
-    create_document, create_editor_window, desktop_platform, destroy_current_window, export_pdf,
-    export_pdf_from_hwp_path, mark_document_dirty, mutate_document, open_document_tracking,
+    create_document, create_editor_window, desktop_platform, destroy_current_window,
+    export_docx_from_hwp_path, export_pdf, export_pdf_from_hwp_path, mark_document_dirty,
+    mutate_document, open_document_tracking, prepare_staged_hwp_docx_export,
     prepare_staged_hwp_pdf_export, prepare_staged_hwp_save, print_webview, query_document,
     render_page_svg, reveal_in_folder, take_pending_open_paths,
 };
@@ -68,6 +70,8 @@ pub fn run() {
             mutate_document,
             export_pdf,
             export_pdf_from_hwp_path,
+            export_docx_from_hwp_path,
+            prepare_staged_hwp_docx_export,
             print_webview,
             destroy_current_window,
             cancel_app_quit,
