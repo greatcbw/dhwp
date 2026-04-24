@@ -24,6 +24,8 @@ pub fn install(app: &mut App) -> tauri::Result<()> {
     let export_pdf = MenuItemBuilder::with_id("file:export-pdf", "Export PDF...")
         .accelerator("CmdOrCtrl+E")
         .build(app)?;
+    let export_docx = MenuItemBuilder::with_id("file:export-docx", "Export DOCX...")
+        .build(app)?;
     let print = MenuItemBuilder::with_id("file:print", "Print...")
         .accelerator("CmdOrCtrl+P")
         .build(app)?;
@@ -77,6 +79,7 @@ pub fn install(app: &mut App) -> tauri::Result<()> {
         .item(&save_as)
         .separator()
         .item(&export_pdf)
+        .item(&export_docx)
         .item(&print)
         .build()?;
     let edit_menu = SubmenuBuilder::new(app, "Edit")
