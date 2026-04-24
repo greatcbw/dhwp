@@ -108,7 +108,6 @@ pub struct AppState {
     pub sessions: Mutex<DocumentSessionManager>,
     pub pending_open_paths: Mutex<Vec<String>>,
     pub quit_requests: Mutex<crate::app_quit::AppQuitState>,
-    pub updater: Mutex<crate::updates::UpdateManagerState>,
 }
 
 impl DocumentSessionManager {

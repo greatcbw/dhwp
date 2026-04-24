@@ -7,8 +7,6 @@ mod linux_runtime;
 mod menu;
 mod pdf_export;
 mod state;
-#[cfg(any(target_os = "macos", windows, target_os = "linux"))]
-mod updates;
 mod windows;
 
 use std::path::{Path, PathBuf};
@@ -26,7 +24,6 @@ use commands::{
     render_page_svg, reveal_in_folder, take_pending_open_paths,
 };
 use state::AppState;
-use updates::{get_update_state, restart_to_apply_update, start_update_install};
 
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -39,7 +36,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             let paths = document_paths_from_args(&args, &cwd);
@@ -56,8 +52,6 @@ pub fn run() {
                 windows::install_editor_window_minimum(&window);
                 windows::attach_document_drop_handler(app.handle(), &window);
             }
-            #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
-            updates::install_startup_update_check(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -83,9 +77,6 @@ pub fn run() {
             check_external_modification,
             take_pending_open_paths,
             reveal_in_folder,
-            get_update_state,
-            start_update_install,
-            restart_to_apply_update,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build HOP desktop app");

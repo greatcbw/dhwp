@@ -1,14 +1,19 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default HOP desktop capability",
+  "description": "Default hwpdocx desktop capability",
   "windows": ["main", "main*"],
   "permissions": [
     "core:default",
     "dialog:default",
     "fs:default",
+    "fs:allow-open",
+    "fs:allow-read",
+    "fs:allow-write",
     "fs:allow-write-file",
     "fs:allow-remove",
+    "fs:scope-home-recursive",
+    "fs:scope-desktop-recursive",
     "log:default",
     "store:default",
     "window-state:default"

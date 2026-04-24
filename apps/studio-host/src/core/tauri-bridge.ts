@@ -29,28 +29,6 @@ interface ExternalModificationStatus {
   reason?: string | null;
 }
 
-export type DesktopUpdateState =
-  | { status: 'idle' }
-  | {
-      status: 'available';
-      version: string;
-    }
-  | {
-      status: 'downloading';
-      version: string;
-      downloadedBytes: number;
-      totalBytes?: number | null;
-    }
-  | {
-      status: 'ready';
-      version: string;
-    }
-  | {
-      status: 'error';
-      version: string;
-      message: string;
-    };
-
 export interface DesktopSaveResult {
   docId: string;
   sourcePath?: string | null;
@@ -79,9 +57,6 @@ export interface DesktopBridgeApi {
   destroyCurrentWindow(): Promise<void>;
   cancelAppQuit(): Promise<void>;
   revealInFolder(): Promise<void>;
-  getUpdateState(): Promise<DesktopUpdateState>;
-  startUpdateInstall(): Promise<void>;
-  restartToApplyUpdate(): Promise<void>;
   hasUnsavedChanges(): boolean;
   markDocumentDirty(): void;
   confirmWindowClose(): Promise<boolean>;
@@ -228,18 +203,6 @@ export class TauriBridge extends WasmBridge implements DesktopBridgeApi {
   async revealInFolder(): Promise<void> {
     if (!this.sourcePath) return;
     await this.invoke<void>('reveal_in_folder', { path: this.sourcePath });
-  }
-
-  async getUpdateState(): Promise<DesktopUpdateState> {
-    return this.invoke<DesktopUpdateState>('get_update_state');
-  }
-
-  async startUpdateInstall(): Promise<void> {
-    await this.invoke<void>('start_update_install');
-  }
-
-  async restartToApplyUpdate(): Promise<void> {
-    await this.invoke<void>('restart_to_apply_update');
   }
 
   hasUnsavedChanges(): boolean {
