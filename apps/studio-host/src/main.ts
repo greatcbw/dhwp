@@ -31,7 +31,6 @@ import { TableObjectRenderer } from '@/engine/table-object-renderer';
 import { TableResizeRenderer } from '@/engine/table-resize-renderer';
 import { Ruler } from '@/view/ruler';
 import { enhanceCustomSelects } from '@/ui/custom-select';
-import { UpdateNotice, type UpdateNoticeActions } from '@/ui/update-notice';
 import type { DesktopBridgeApi } from '@/core/tauri-bridge';
 
 const wasm = createBridge();
@@ -199,18 +198,12 @@ async function initialize(): Promise<void> {
     setupZoomControls();
     setupEventListeners();
     setupGlobalShortcuts();
-    const updateNotice = tauriRuntime
-      ? new UpdateNotice(updateNoticeActions(wasm))
-      : null;
     void setupDesktopEvents({
       bridge: wasm,
       dispatcher,
       eventBus,
       setMessage: (message) => {
         sbMessage().textContent = message;
-      },
-      onUpdateState: (state) => {
-        updateNotice?.setState(state);
       },
     }).catch((error) => {
       console.error('[main] desktop event setup failed:', error);
@@ -227,20 +220,6 @@ async function initialize(): Promise<void> {
   }
 }
 
-function updateNoticeActions(bridge: unknown): UpdateNoticeActions {
-  const desktop = bridge as Partial<
-    Pick<DesktopBridgeApi, 'startUpdateInstall' | 'restartToApplyUpdate'>
-  >;
-
-  return {
-    startUpdateInstall: desktop.startUpdateInstall
-      ? () => desktop.startUpdateInstall!()
-      : undefined,
-    restartToApplyUpdate: desktop.restartToApplyUpdate
-      ? () => desktop.restartToApplyUpdate!()
-      : undefined,
-  };
-}
 
 /**
  * 전역 단축키 핸들러 — InputHandler.active 여부와 무관하게 동작해야 하는 단축키.

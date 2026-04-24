@@ -39,7 +39,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage: vi.fn(),
-      onUpdateState: vi.fn(),
     });
 
     expect(tauriListen).not.toHaveBeenCalled();
@@ -63,7 +62,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: eventBus as never,
       setMessage: vi.fn(),
-      onUpdateState: vi.fn(),
     });
 
     await windowHandlers.get('hop-open-paths')?.({
@@ -90,7 +88,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage,
-      onUpdateState: vi.fn(),
     });
 
     await windowHandlers.get('hop-open-paths')?.({
@@ -112,7 +109,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage,
-      onUpdateState: vi.fn(),
     });
 
     await windowHandlers.get('tauri://drag-enter')?.({ payload: { paths: ['notes.txt'] } });
@@ -145,7 +141,6 @@ describe('desktop events', () => {
       dispatcher: dispatcher as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage: vi.fn(),
-      onUpdateState: vi.fn(),
     });
 
     await windowHandlers.get('hop-menu-command')?.({ payload: 'file:save' });
@@ -175,7 +170,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage: vi.fn(),
-      onUpdateState: vi.fn(),
     });
 
     await windowHandlers.get('hop-app-quit-requested')?.({ payload: null });
@@ -204,7 +198,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage,
-      onUpdateState: vi.fn(),
     });
 
     const preventDefault = vi.fn();
@@ -234,7 +227,6 @@ describe('desktop events', () => {
       dispatcher: { dispatch: vi.fn() } as never,
       eventBus: { emit: vi.fn() } as never,
       setMessage,
-      onUpdateState: vi.fn(),
     });
 
     const preventDefault = vi.fn();
@@ -254,69 +246,6 @@ describe('desktop events', () => {
     })).resolves.toBe(payload);
   });
 
-  it('hydrates update state and listens for later updater events', async () => {
-    const { eventHandlers } = installTauriMocks();
-    (globalThis as { window?: unknown }).window = { __TAURI_INTERNALS__: {} };
-    installDocumentStub();
-
-    const onUpdateState = vi.fn();
-    const bridge = {
-      takePendingOpenPaths: vi.fn().mockResolvedValue([]),
-      getUpdateState: vi.fn().mockResolvedValue({
-        status: 'available',
-        version: '0.1.3',
-      }),
-    };
-
-    await setupDesktopEvents({
-      bridge,
-      dispatcher: { dispatch: vi.fn() } as never,
-      eventBus: { emit: vi.fn() } as never,
-      setMessage: vi.fn(),
-      onUpdateState,
-    });
-
-    expect(onUpdateState).toHaveBeenCalledWith({
-      status: 'available',
-      version: '0.1.3',
-    });
-
-    await eventHandlers.get('hop-update-state')?.({
-      payload: { status: 'ready', version: '0.1.3' },
-    });
-
-    expect(onUpdateState).toHaveBeenCalledWith({
-      status: 'ready',
-      version: '0.1.3',
-    });
-  });
-
-  it('does not fail desktop event setup when updater state hydration throws', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    installTauriMocks();
-    (globalThis as { window?: unknown }).window = { __TAURI_INTERNALS__: {} };
-    installDocumentStub();
-
-    const onUpdateState = vi.fn();
-    const bridge = {
-      takePendingOpenPaths: vi.fn().mockResolvedValue([]),
-      getUpdateState: vi.fn().mockRejectedValue(new Error('updater unavailable')),
-    };
-
-    await expect(setupDesktopEvents({
-      bridge,
-      dispatcher: { dispatch: vi.fn() } as never,
-      eventBus: { emit: vi.fn() } as never,
-      setMessage: vi.fn(),
-      onUpdateState,
-    })).resolves.toBeUndefined();
-
-    expect(onUpdateState).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalledWith(
-      '[desktop-events] updater state hydrate failed:',
-      expect.any(Error),
-    );
-  });
 });
 
 function installTauriMocks() {
