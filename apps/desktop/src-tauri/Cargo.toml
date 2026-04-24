@@ -1,16 +1,16 @@
 [package]
-name = "hop-desktop"
+name = "hwpdocx"
 version = "0.1.7"
 edition = "2021"
-description = "HOP - Open HWP desktop app"
+description = "hwpdocx - Open HWP desktop app & save docx"
 license = "MIT"
 
 [lib]
-name = "hop_desktop"
+name = "hwpdocx"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "hop-desktop"
+name = "hwpdocx"
 path = "src/main.rs"
 
 [build-dependencies]
