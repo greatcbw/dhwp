@@ -6,7 +6,7 @@ description = "hwpdocx - Open HWP desktop app & save docx"
 license = "MIT"
 
 [lib]
-name = "hwpdocx"
+name = "hwpdocx_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
