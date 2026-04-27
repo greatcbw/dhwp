@@ -1,6 +1,7 @@
 use docx_rs::{
-    AlignmentType, Docx, LineSpacing, Paragraph, Run, RunFonts, SpecialIndentType, Table,
-    TableCell, TableRow, VAlignType, VertAlignType,
+    AlignmentType, BorderType, Docx, LineSpacing, Paragraph, Run, RunFonts, SpecialIndentType,
+    Table, TableCell, TableCellBorder, TableCellBorderPosition, TableCellBorders, TableRow,
+    VAlignType, VertAlignType,
 };
 use rhwp::model::control::Control;
 use rhwp::model::document::Document;
@@ -267,6 +268,7 @@ fn convert_table(
     doc: &Document,
 ) -> Result<Table, String> {
     let row_count = table.row_count as usize;
+    let table_bf_id = table.border_fill_id;
 
     // rowspan이 있는 셀은 아랫 행에 vMerge::Continue 셀을 반드시 삽입해야 함.
     // continuations[row] = Vec<(col_start, col_span)>
@@ -312,7 +314,7 @@ fn convert_table(
                 (None, None) => break,
                 (Some(_), None) => {
                     let cell = *real_iter.next().unwrap();
-                    cells.push(build_table_cell(cell, doc)?);
+                    cells.push(build_table_cell(cell, table_bf_id, doc)?);
                 }
                 (None, Some(_)) => {
                     let &(_, col_span) = cont_iter.next().unwrap();
@@ -321,7 +323,7 @@ fn convert_table(
                 (Some(rc), Some(cc)) => {
                     if rc <= cc {
                         let cell = *real_iter.next().unwrap();
-                        cells.push(build_table_cell(cell, doc)?);
+                        cells.push(build_table_cell(cell, table_bf_id, doc)?);
                     } else {
                         let &(_, col_span) = cont_iter.next().unwrap();
                         cells.push(make_continue_cell(col_span));
@@ -336,9 +338,11 @@ fn convert_table(
     Ok(Table::new(rows))
 }
 
-/// rowspan 연속 행에 삽입하는 빈 Continue 셀
+/// rowspan 연속 행에 삽입하는 빈 Continue 셀 (테두리 없음)
 fn make_continue_cell(col_span: usize) -> TableCell {
-    let mut cell = TableCell::new().vertical_merge(docx_rs::VMergeType::Continue);
+    let mut cell = TableCell::new()
+        .vertical_merge(docx_rs::VMergeType::Continue)
+        .clear_all_border();
     if col_span > 1 {
         cell = cell.grid_span(col_span);
     }
@@ -348,6 +352,7 @@ fn make_continue_cell(col_span: usize) -> TableCell {
 /// 실제 내용이 있는 일반 셀 빌드
 fn build_table_cell(
     cell: &rhwp::model::table::Cell,
+    table_border_fill_id: u16,
     doc: &Document,
 ) -> Result<TableCell, String> {
     let mut docx_cell = TableCell::new();
@@ -371,7 +376,81 @@ fn build_table_cell(
     };
     docx_cell = docx_cell.vertical_align(valign);
 
+    // 테두리 속성: 셀 고유 border_fill_id → 없으면 표 기본 id 사용
+    let bf_id = if cell.border_fill_id != 0 { cell.border_fill_id } else { table_border_fill_id };
+    if let Some(bf) = doc.doc_info.border_fills.get(bf_id.saturating_sub(1) as usize) {
+        docx_cell = docx_cell.set_borders(hwp_border_fill_to_docx(bf));
+    } else {
+        docx_cell = docx_cell.clear_all_border();
+    }
+
     Ok(docx_cell)
+}
+
+/// HWP BorderFill → DOCX TableCellBorders 변환
+/// HWP borders 배열: [0]=좌, [1]=우, [2]=상, [3]=하
+fn hwp_border_fill_to_docx(bf: &rhwp::model::style::BorderFill) -> TableCellBorders {
+    let left   = hwp_border_line_to_docx(&bf.borders[0], TableCellBorderPosition::Left);
+    let right  = hwp_border_line_to_docx(&bf.borders[1], TableCellBorderPosition::Right);
+    let top    = hwp_border_line_to_docx(&bf.borders[2], TableCellBorderPosition::Top);
+    let bottom = hwp_border_line_to_docx(&bf.borders[3], TableCellBorderPosition::Bottom);
+
+    TableCellBorders::with_empty()
+        .set(top)
+        .set(left)
+        .set(bottom)
+        .set(right)
+}
+
+/// HWP BorderLine → DOCX TableCellBorder 변환
+fn hwp_border_line_to_docx(
+    line: &rhwp::model::style::BorderLine,
+    position: TableCellBorderPosition,
+) -> TableCellBorder {
+    use rhwp::model::style::BorderLineType;
+
+    let border_type = match line.line_type {
+        BorderLineType::None => BorderType::Nil,
+        BorderLineType::Solid => BorderType::Single,
+        BorderLineType::Dash | BorderLineType::LongDash => BorderType::Dashed,
+        BorderLineType::Dot | BorderLineType::Circle => BorderType::Dotted,
+        BorderLineType::DashDot => BorderType::DotDash,
+        BorderLineType::DashDotDot => BorderType::DotDotDash,
+        BorderLineType::Double => BorderType::Double,
+        BorderLineType::DoubleWave => BorderType::DoubleWave,
+        BorderLineType::ThinThickDouble => BorderType::ThinThickSmallGap,
+        BorderLineType::ThickThinDouble => BorderType::ThickThinSmallGap,
+        BorderLineType::ThinThickThinTriple => BorderType::ThinThickThinSmallGap,
+        BorderLineType::Wave => BorderType::Wave,
+        BorderLineType::Thick3D => BorderType::ThreeDEmboss,
+        BorderLineType::Thick3DReverse => BorderType::ThreeDEngrave,
+        BorderLineType::Thin3D | BorderLineType::Thin3DReverse => BorderType::Single,
+    };
+
+    // HWP 선 굵기 인덱스 → DOCX 크기 (1/8pt 단위)
+    let size: usize = match line.width {
+        0..=2 => 2,
+        3..=4 => 4,
+        5..=6 => 6,
+        7..=8 => 8,
+        9..=10 => 12,
+        11..=12 => 18,
+        _ => 24,
+    };
+
+    // ColorRef = u32 (0x00BBGGRR)
+    let c = line.color;
+    let color = format!(
+        "{:02X}{:02X}{:02X}",
+        (c & 0xFF) as u8,
+        ((c >> 8) & 0xFF) as u8,
+        ((c >> 16) & 0xFF) as u8
+    );
+
+    TableCellBorder::new(position)
+        .border_type(border_type)
+        .size(size)
+        .color(color)
 }
 
 fn atomic_write(path: &Path, data: &[u8]) -> Result<(), String> {
