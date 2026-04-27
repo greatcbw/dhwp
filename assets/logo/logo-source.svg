@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1565C0"/>
+      <stop offset="100%" style="stop-color:#0D47A1"/>
+    </linearGradient>
+    <linearGradient id="docLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.25"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.10"/>
+    </linearGradient>
+    <linearGradient id="docRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.95"/>
+      <stop offset="100%" style="stop-color:#E3F2FD;stop-opacity:0.9"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="shadowSm" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- 배경 -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="url(#bg)"/>
+
+  <!-- 왼쪽 HWP 문서 (뒤, 반투명) -->
+  <g filter="url(#shadowSm)" transform="translate(148, 220)">
+    <rect width="260" height="330" rx="22" ry="22" fill="url(#docLeft)" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+    <!-- 문서 귀퉁이 접힘 -->
+    <path d="M218,0 L260,42 L218,42 Z" fill="rgba(255,255,255,0.15)"/>
+    <path d="M218,0 L260,42 L218,42 Z" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+    <!-- 줄 표시 -->
+    <rect x="28" y="80" width="140" height="10" rx="5" fill="rgba(255,255,255,0.4)"/>
+    <rect x="28" y="108" width="180" height="10" rx="5" fill="rgba(255,255,255,0.3)"/>
+    <rect x="28" y="136" width="160" height="10" rx="5" fill="rgba(255,255,255,0.3)"/>
+    <rect x="28" y="164" width="170" height="10" rx="5" fill="rgba(255,255,255,0.25)"/>
+    <rect x="28" y="192" width="130" height="10" rx="5" fill="rgba(255,255,255,0.25)"/>
+    <!-- HWP 라벨 -->
+    <rect x="18" y="264" width="88" height="36" rx="8" fill="rgba(255,255,255,0.2)"/>
+    <text x="62" y="288" font-family="'Arial', sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle" opacity="0.9">HWP</text>
+  </g>
+
+  <!-- 화살표 -->
+  <g transform="translate(512, 512)">
+    <!-- 화살표 원형 배경 -->
+    <circle cx="0" cy="0" r="68" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
+    <!-- 화살표 -->
+    <path d="M-28,0 L18,0" stroke="white" stroke-width="14" stroke-linecap="round"/>
+    <path d="M4,-20 L28,0 L4,20" stroke="white" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- 오른쪽 DOCX 문서 (앞, 흰색) -->
+  <g filter="url(#shadow)" transform="translate(616, 174)">
+    <rect width="268" height="338" rx="22" ry="22" fill="url(#docRight)"/>
+    <!-- 귀퉁이 접힘 -->
+    <path d="M222,0 L268,46 L222,46 Z" fill="#BBDEFB"/>
+    <path d="M222,0 L268,46 L222,46 Z" fill="none" stroke="#90CAF9" stroke-width="1.5"/>
+    <!-- 줄 표시 -->
+    <rect x="28" y="82" width="148" height="11" rx="5.5" fill="#1565C0" opacity="0.7"/>
+    <rect x="28" y="110" width="186" height="11" rx="5.5" fill="#1565C0" opacity="0.4"/>
+    <rect x="28" y="138" width="164" height="11" rx="5.5" fill="#1565C0" opacity="0.4"/>
+    <rect x="28" y="166" width="176" height="11" rx="5.5" fill="#1565C0" opacity="0.3"/>
+    <rect x="28" y="194" width="136" height="11" rx="5.5" fill="#1565C0" opacity="0.3"/>
+    <rect x="28" y="222" width="156" height="11" rx="5.5" fill="#1565C0" opacity="0.25"/>
+    <!-- DOCX 라벨 배지 -->
+    <rect x="18" y="272" width="106" height="38" rx="9" fill="#1565C0"/>
+    <text x="71" y="298" font-family="'Arial', sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle">DOCX</text>
+  </g>
+
+  <!-- 하단 브랜드 텍스트 -->
+  <text x="512" y="870" font-family="'Arial', sans-serif" font-size="68" font-weight="700" fill="white" text-anchor="middle" opacity="0.92" letter-spacing="-1">hwpdocx</text>
+</svg>
