@@ -1,7 +1,7 @@
 use docx_rs::{
-    AlignmentType, BorderType, Docx, LineSpacing, Paragraph, Run, RunFonts, SpecialIndentType,
-    Table, TableCell, TableCellBorder, TableCellBorderPosition, TableCellBorders, TableRow,
-    VAlignType, VertAlignType,
+    AlignmentType, BorderType, Docx, LineSpacing, Paragraph, Run, RunFonts, Shading, ShdType,
+    SpecialIndentType, Table, TableCell, TableCellBorder, TableCellBorderPosition,
+    TableCellBorders, TableRow, VAlignType, VertAlignType,
 };
 use rhwp::model::control::Control;
 use rhwp::model::document::Document;
@@ -376,15 +376,47 @@ fn build_table_cell(
     };
     docx_cell = docx_cell.vertical_align(valign);
 
-    // 테두리 속성: 셀 고유 border_fill_id → 없으면 표 기본 id 사용
+    // 테두리 + 배경색: 셀 고유 border_fill_id → 없으면 표 기본 id 사용
     let bf_id = if cell.border_fill_id != 0 { cell.border_fill_id } else { table_border_fill_id };
     if let Some(bf) = doc.doc_info.border_fills.get(bf_id.saturating_sub(1) as usize) {
         docx_cell = docx_cell.set_borders(hwp_border_fill_to_docx(bf));
+        docx_cell = apply_cell_shading(docx_cell, bf);
     } else {
         docx_cell = docx_cell.clear_all_border();
     }
 
     Ok(docx_cell)
+}
+
+/// HWP BorderFill.fill → DOCX Shading 적용
+/// 단색 배경이 흰색/투명이 아닌 경우에만 shading을 적용한다.
+fn apply_cell_shading(
+    mut docx_cell: TableCell,
+    bf: &rhwp::model::style::BorderFill,
+) -> TableCell {
+    use rhwp::model::style::FillType;
+
+    if bf.fill.fill_type != FillType::Solid {
+        return docx_cell;
+    }
+    let Some(solid) = &bf.fill.solid else {
+        return docx_cell;
+    };
+
+    let c = solid.background_color;
+    // 흰색(0xFFFFFF), 투명/검정(0x000000 기본값) 은 적용하지 않음
+    if c == 0x00FFFFFF || c == 0x00000000 {
+        return docx_cell;
+    }
+
+    let hex = format!(
+        "{:02X}{:02X}{:02X}",
+        (c & 0xFF) as u8,
+        ((c >> 8) & 0xFF) as u8,
+        ((c >> 16) & 0xFF) as u8
+    );
+    docx_cell = docx_cell.shading(Shading::new().shd_type(ShdType::Clear).fill(hex));
+    docx_cell
 }
 
 /// HWP BorderFill → DOCX TableCellBorders 변환
