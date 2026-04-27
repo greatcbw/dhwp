@@ -1,11 +1,12 @@
 use docx_rs::{
-    AlignmentType, BorderType, Docx, LineSpacing, Paragraph, Run, RunFonts, Shading, ShdType,
+    AlignmentType, BorderType, Docx, LineSpacing, Paragraph, ParagraphBorder,
+    ParagraphBorderPosition, ParagraphBorders, Run, RunFonts, Shading, ShdType,
     SpecialIndentType, Table, TableCell, TableCellBorder, TableCellBorderPosition,
     TableCellBorders, TableRow, VAlignType, VertAlignType,
 };
 use rhwp::model::control::Control;
 use rhwp::model::document::Document;
-use rhwp::model::paragraph::Paragraph as HwpParagraph;
+use rhwp::model::paragraph::{ColumnBreakType, Paragraph as HwpParagraph};
 use rhwp::model::style::{Alignment, UnderlineType};
 use rhwp::DocumentCore;
 use std::io::Cursor;
@@ -46,17 +47,32 @@ pub fn export_core_to_docx(core: &DocumentCore, path: &Path) -> Result<(), Strin
 fn build_docx(doc: &Document) -> Result<Docx, String> {
     let mut docx = Docx::new();
 
-    for section in &doc.sections {
-        for para in &section.paragraphs {
+    for (section_idx, section) in doc.sections.iter().enumerate() {
+        for (para_idx, para) in section.paragraphs.iter().enumerate() {
+            // 페이지/구역 나누기 여부 판단:
+            //   - 2번째 이상 구역(section)의 첫 문단은 항상 페이지 나누기
+            //   - 문단 자체의 쪽/구역 나누기 플래그
+            let needs_page_break = (section_idx > 0 && para_idx == 0)
+                || para.column_type == ColumnBreakType::Page
+                || para.column_type == ColumnBreakType::Section;
+
             // 표 컨트롤이 있는 문단은 표로 변환
             let table_control = para.controls.iter().find_map(|c| {
                 if let Control::Table(t) = c { Some(t.as_ref()) } else { None }
             });
 
             if let Some(table) = table_control {
+                // 표 앞에 페이지 나누기가 필요하면 빈 문단으로 삽입
+                if needs_page_break {
+                    docx = docx.add_paragraph(Paragraph::new().page_break_before(true));
+                }
                 docx = docx.add_table(convert_table(table, doc)?);
             } else {
-                docx = docx.add_paragraph(convert_paragraph(para, doc)?);
+                let mut p = convert_paragraph(para, doc)?;
+                if needs_page_break {
+                    p = p.page_break_before(true);
+                }
+                docx = docx.add_paragraph(p);
             }
         }
     }
@@ -98,6 +114,15 @@ fn convert_paragraph(
         .align(align)
         .indent(Some(indent_left as i32), special_indent, Some(indent_right as i32), None)
         .line_spacing(LineSpacing::new().before(space_before).after(space_after));
+
+    // 문단 테두리 (사례 박스 등): border_fill_id > 0 이면 적용
+    if para_shape.border_fill_id > 0 {
+        let bf_idx = para_shape.border_fill_id.saturating_sub(1) as usize;
+        if let Some(bf) = doc.doc_info.border_fills.get(bf_idx) {
+            let borders = hwp_border_fill_to_para_borders(bf, &para_shape.border_spacing);
+            docx_para.property = docx_para.property.set_borders(borders);
+        }
+    }
 
     // 텍스트를 글자모양 구간별로 Run으로 분할
     for run in build_runs(para, doc) {
@@ -417,6 +442,83 @@ fn apply_cell_shading(
     );
     docx_cell = docx_cell.shading(Shading::new().shd_type(ShdType::Clear).fill(hex));
     docx_cell
+}
+
+/// HWP BorderFill → DOCX ParagraphBorders 변환 (문단 테두리)
+/// HWP borders 배열: [0]=좌, [1]=우, [2]=상, [3]=하
+/// border_spacing: HWPUNIT 단위 (1 HWPUNIT = 1/100 pt), DOCX space는 pt 단위
+fn hwp_border_fill_to_para_borders(
+    bf: &rhwp::model::style::BorderFill,
+    spacing: &[i16; 4],
+) -> ParagraphBorders {
+    let left   = hwp_border_line_to_para_border(&bf.borders[0], ParagraphBorderPosition::Left,   spacing[0]);
+    let right  = hwp_border_line_to_para_border(&bf.borders[1], ParagraphBorderPosition::Right,  spacing[1]);
+    let top    = hwp_border_line_to_para_border(&bf.borders[2], ParagraphBorderPosition::Top,    spacing[2]);
+    let bottom = hwp_border_line_to_para_border(&bf.borders[3], ParagraphBorderPosition::Bottom, spacing[3]);
+
+    ParagraphBorders::with_empty()
+        .set(top)
+        .set(left)
+        .set(bottom)
+        .set(right)
+}
+
+/// HWP BorderLine → DOCX ParagraphBorder 변환
+fn hwp_border_line_to_para_border(
+    line: &rhwp::model::style::BorderLine,
+    position: ParagraphBorderPosition,
+    spacing_hwpunit: i16,
+) -> ParagraphBorder {
+    use rhwp::model::style::BorderLineType;
+
+    let border_type = match line.line_type {
+        BorderLineType::None => BorderType::Nil,
+        BorderLineType::Solid => BorderType::Single,
+        BorderLineType::Dash | BorderLineType::LongDash => BorderType::Dashed,
+        BorderLineType::Dot | BorderLineType::Circle => BorderType::Dotted,
+        BorderLineType::DashDot => BorderType::DotDash,
+        BorderLineType::DashDotDot => BorderType::DotDotDash,
+        BorderLineType::Double => BorderType::Double,
+        BorderLineType::DoubleWave => BorderType::DoubleWave,
+        BorderLineType::ThinThickDouble => BorderType::ThinThickSmallGap,
+        BorderLineType::ThickThinDouble => BorderType::ThickThinSmallGap,
+        BorderLineType::ThinThickThinTriple => BorderType::ThinThickThinSmallGap,
+        BorderLineType::Wave => BorderType::Wave,
+        BorderLineType::Thick3D => BorderType::ThreeDEmboss,
+        BorderLineType::Thick3DReverse => BorderType::ThreeDEngrave,
+        BorderLineType::Thin3D | BorderLineType::Thin3DReverse => BorderType::Single,
+    };
+
+    let size: usize = match line.width {
+        0..=2 => 2,
+        3..=4 => 4,
+        5..=6 => 6,
+        7..=8 => 8,
+        9..=10 => 12,
+        11..=12 => 18,
+        _ => 24,
+    };
+
+    // 간격 변환: HWPUNIT → pt (1 HWPUNIT = 1/100 pt)
+    let space = if spacing_hwpunit > 0 {
+        ((spacing_hwpunit as f64) / 100.0).round().max(1.0) as usize
+    } else {
+        1
+    };
+
+    let c = line.color;
+    let color = format!(
+        "{:02X}{:02X}{:02X}",
+        (c & 0xFF) as u8,
+        ((c >> 8) & 0xFF) as u8,
+        ((c >> 16) & 0xFF) as u8
+    );
+
+    ParagraphBorder::new(position)
+        .val(border_type)
+        .size(size)
+        .space(space)
+        .color(color)
 }
 
 /// HWP BorderFill → DOCX TableCellBorders 변환
