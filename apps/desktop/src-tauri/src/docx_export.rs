@@ -267,14 +267,30 @@ fn convert_table(
     doc: &Document,
 ) -> Result<Table, String> {
     let row_count = table.row_count as usize;
-    let col_count = table.col_count as usize;
+
+    // rowspan이 있는 셀은 아랫 행에 vMerge::Continue 셀을 반드시 삽입해야 함.
+    // continuations[row] = Vec<(col_start, col_span)>
+    let mut continuations: Vec<Vec<(usize, usize)>> = vec![vec![]; row_count];
+    for cell in &table.cells {
+        if cell.row_span > 1 {
+            let start_row = cell.row as usize;
+            let col_span = (cell.col_span as usize).max(1);
+            for r in 1..(cell.row_span as usize) {
+                let target_row = start_row + r;
+                if target_row < row_count {
+                    continuations[target_row].push((cell.col as usize, col_span));
+                }
+            }
+        }
+    }
+    for cont in &mut continuations {
+        cont.sort_by_key(|&(col, _)| col);
+    }
 
     let mut rows: Vec<TableRow> = Vec::with_capacity(row_count);
 
     for row_idx in 0..row_count {
-        let mut cells: Vec<TableCell> = Vec::with_capacity(col_count);
-
-        // 이 행에 속한 셀을 col 순서로 수집
+        // 이 행에서 시작하는 실제 셀 (col 순 정렬)
         let mut row_cells: Vec<&rhwp::model::table::Cell> = table
             .cells
             .iter()
@@ -282,38 +298,80 @@ fn convert_table(
             .collect();
         row_cells.sort_by_key(|c| c.col);
 
-        for cell in row_cells {
-            let mut docx_cell = TableCell::new();
+        // 실제 셀과 Continue 셀을 컬럼 순서대로 병합
+        let cont = &continuations[row_idx];
+        let mut real_iter = row_cells.iter().peekable();
+        let mut cont_iter = cont.iter().peekable();
+        let mut cells: Vec<TableCell> = Vec::new();
 
-            for para in &cell.paragraphs {
-                docx_cell = docx_cell.add_paragraph(convert_paragraph(para, doc)?);
+        loop {
+            let next_real = real_iter.peek().map(|c| c.col as usize);
+            let next_cont = cont_iter.peek().map(|c| c.0);
+
+            match (next_real, next_cont) {
+                (None, None) => break,
+                (Some(_), None) => {
+                    let cell = *real_iter.next().unwrap();
+                    cells.push(build_table_cell(cell, doc)?);
+                }
+                (None, Some(_)) => {
+                    let &(_, col_span) = cont_iter.next().unwrap();
+                    cells.push(make_continue_cell(col_span));
+                }
+                (Some(rc), Some(cc)) => {
+                    if rc <= cc {
+                        let cell = *real_iter.next().unwrap();
+                        cells.push(build_table_cell(cell, doc)?);
+                    } else {
+                        let &(_, col_span) = cont_iter.next().unwrap();
+                        cells.push(make_continue_cell(col_span));
+                    }
+                }
             }
-
-            // colspan 처리
-            if cell.col_span > 1 {
-                docx_cell = docx_cell.grid_span(cell.col_span as usize);
-            }
-
-            // rowspan — DOCX vMerge 방식
-            if cell.row_span > 1 {
-                docx_cell = docx_cell.vertical_merge(docx_rs::VMergeType::Restart);
-            }
-
-            // 셀 세로 정렬
-            let valign = match cell.vertical_align {
-                rhwp::model::table::VerticalAlign::Top => VAlignType::Top,
-                rhwp::model::table::VerticalAlign::Center => VAlignType::Center,
-                rhwp::model::table::VerticalAlign::Bottom => VAlignType::Bottom,
-            };
-            docx_cell = docx_cell.vertical_align(valign);
-
-            cells.push(docx_cell);
         }
 
         rows.push(TableRow::new(cells));
     }
 
     Ok(Table::new(rows))
+}
+
+/// rowspan 연속 행에 삽입하는 빈 Continue 셀
+fn make_continue_cell(col_span: usize) -> TableCell {
+    let mut cell = TableCell::new().vertical_merge(docx_rs::VMergeType::Continue);
+    if col_span > 1 {
+        cell = cell.grid_span(col_span);
+    }
+    cell
+}
+
+/// 실제 내용이 있는 일반 셀 빌드
+fn build_table_cell(
+    cell: &rhwp::model::table::Cell,
+    doc: &Document,
+) -> Result<TableCell, String> {
+    let mut docx_cell = TableCell::new();
+
+    for para in &cell.paragraphs {
+        docx_cell = docx_cell.add_paragraph(convert_paragraph(para, doc)?);
+    }
+
+    if cell.col_span > 1 {
+        docx_cell = docx_cell.grid_span(cell.col_span as usize);
+    }
+
+    if cell.row_span > 1 {
+        docx_cell = docx_cell.vertical_merge(docx_rs::VMergeType::Restart);
+    }
+
+    let valign = match cell.vertical_align {
+        rhwp::model::table::VerticalAlign::Top => VAlignType::Top,
+        rhwp::model::table::VerticalAlign::Center => VAlignType::Center,
+        rhwp::model::table::VerticalAlign::Bottom => VAlignType::Bottom,
+    };
+    docx_cell = docx_cell.vertical_align(valign);
+
+    Ok(docx_cell)
 }
 
 fn atomic_write(path: &Path, data: &[u8]) -> Result<(), String> {
