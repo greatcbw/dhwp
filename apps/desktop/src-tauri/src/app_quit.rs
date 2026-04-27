@@ -1,3 +1,6 @@
+// Rust의 dead_code lint가 Tauri 클로저를 통한 호출을 추적하지 못해 발생하는 false positive 억제
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent};
