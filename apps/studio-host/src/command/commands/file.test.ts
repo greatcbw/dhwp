@@ -116,6 +116,7 @@ function desktopBridge(overrides: Record<string, unknown>) {
     saveDocumentFromCommand: vi.fn(),
     saveDocumentAsFromCommand: vi.fn(),
     exportPdfFromCommand: vi.fn(),
+    exportDocxFromCommand: vi.fn(),
     printCurrentWebview: vi.fn(),
     ...overrides,
   };
